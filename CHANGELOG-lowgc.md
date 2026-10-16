@@ -1,11 +1,19 @@
 # Puppeteer 1.1.3-lowgc
 
-A low-garbage build of [skrymsli/Puppeteer](https://github.com/skrymsli/Puppeteer) (healer mana display included),
-with the upstream OldManAlpha `dev` fixes merged:
-- Nampower fallback for cast failures on base 1.12 (fixes stuck heal predictions)
-- "Vanilla Shaman Color" option
+A low-garbage build of [OldManAlpha/Puppeteer](https://github.com/OldManAlpha/Puppeteer), based on its latest `dev`
+branch. That branch includes the Nampower cast-fail fix for heal predictions and the "Vanilla Shaman Color" option.
 
-Neither upstream change adds garbage.
+## Additions from skrymsli/Puppeteer
+
+Each [skrymsli](https://github.com/skrymsli/Puppeteer) commit was only kept if it doesn't cost combat performance:
+
+- **Variable test UI frame sizes (`/pt testui [count]`)**: kept. It only does work while test mode is on. Its
+  per-call pattern match was replaced with a value cached when each frame is created.
+- **Healer mana display and report**: kept, but changed. As shipped, it rescanned all 40 raid frames and redrew the
+  raid header on every mana, rage or energy event in the raid. That made each event about 20x more expensive in CPU
+  (111 µs vs 5.6 µs) and a raid-wide mana tick about twice as slow. It now updates at most twice per second. That
+  brings the cost back to the OldManAlpha level (5.3 µs per event) and adds about 2 bytes of garbage per raid-wide
+  tick.
 
 ## Why
 
@@ -15,18 +23,17 @@ allocations from code that runs during fights. Nothing about how the frames look
 
 ## Garbage per event (bytes), 40-man raid
 
-| Event | Before | After |
+| Event | OldManAlpha | This build |
 |---|---:|---:|
-| Full group check (RAID_ROSTER_UPDATE) | 16,267 | 237 |
-| Target change | 5,550 | 1.5 |
-| HealComm message from another healer | 546 | 4.5 |
+| Full group check (RAID_ROSTER_UPDATE) | 17,657 | 237 |
+| Target change | 4,789 | 1.5 |
+| HealComm message from another healer | 436 | 4.3 |
 | Heal cast (SuperWoW START + CAST) | 409 | 1.8 |
-| HoT cast + Nampower aura event | 409 | 0.4 |
-| Heal cast + its combat log line | 164 | 6.9 |
-| UNIT_AURA | 52–58 | 0.1 |
-| UNIT_HEALTH | 49 | 21 |
+| HoT cast + Nampower aura event | 419 | 0.4 |
+| Heal cast + its combat log line | 134 | 5.6 |
+| UNIT_HEALTH | 50 | 21 |
 
-Simulated Naxxramas-style fight: 21.2 KB/s → 8.6 KB/s of garbage. The SuperWoW + Nampower + UnitXP client and the
+Simulated Naxxramas-style fight: 21.1 KB/s → 8.6 KB/s of garbage. The SuperWoW + Nampower + UnitXP client and the
 plain 1.12 client gave the same results.
 
 ## Changes
@@ -54,17 +61,17 @@ plain 1.12 client gave the same results.
   - Color code prefixes are cached.
   - Range text is only rebuilt when the shown distance or its color changes.
   - Aura minute strings ("5m") are cached.
-- **Raid mana header.** It used to scan all 40 frames on every mana, rage or energy tick in the raid. It now updates
-  at most twice per second. This is a CPU saving rather than a garbage one.
 - **HealComm-1.0 (bundled).** The message split table and heal entries are reused. HealComm is shared between addons,
   so this only applies when Puppeteer's copy is the one loaded.
 
 ## Verification
 
 - All files compile under a real Lua 5.0 VM.
-- Baseline and this build were run through the same deterministic simulated fight. Every frame's texts, bar values,
+- OldManAlpha's build, skrymsli's build and this build were run through the same deterministic simulated fight. Every frame's texts, bar values,
   colors, alpha, positions, aura icons, heal predictions and aura caches were compared at checkpoints across 10
-  settings and client combinations. The only difference: a stale aura icon reference now holds that slot's current
+  settings and client combinations. Against OldManAlpha's build, every unit frame matched exactly; the only
+  differences were in the raid header, where skrymsli's mana labels live. Against skrymsli's build, the only
+  difference was: a stale aura icon reference now holds that slot's current
   aura instead of an erased table, which only affects what a hover tooltip would show.
 
 ## About ClassicAPI
