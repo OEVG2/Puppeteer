@@ -40,7 +40,10 @@ BarStyles = {
     ["Puppeteer"] = ptBarsPath.."Puppeteer",
     ["Puppeteer Borderless"] = ptBarsPath.."Puppeteer-Borderless",
     ["Puppeteer Shineless"] = ptBarsPath.."Puppeteer-Shineless",
-    ["Puppeteer Shineless Borderless"] = ptBarsPath.."Puppeteer-Shineless-Borderless"
+    ["Puppeteer Shineless Borderless"] = ptBarsPath.."Puppeteer-Shineless-Borderless",
+    -- Uniform fill: no darker lower half, so the bar color looks the same from top to bottom
+    ["Puppeteer Flat"] = ptBarsPath.."Puppeteer-Flat",
+    ["Puppeteer Flat Borderless"] = ptBarsPath.."Puppeteer-Flat-Borderless"
 }
 
 CurrentlyHeldButton = nil

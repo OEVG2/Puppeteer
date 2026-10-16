@@ -78,3 +78,10 @@ plain 1.12 client gave the same results.
 
 ClassicAPI backports the modern API and Lua 5.1 syntax, but it still runs on 1.12's Lua 5.0 VM and documents no
 collector changes. It would not reduce GC pauses, so this build does not depend on it.
+
+## Flat bar textures
+
+Two new bar textures, **Puppeteer Flat** and **Puppeteer Flat Borderless**, are available in the Health Bar Texture
+and Power Bar Texture dropdowns. The original Puppeteer textures are brighter in the top half than the bottom
+(about 188 vs 137–120 brightness), which makes bar colors look darker halfway down. The flat textures use the
+top-half brightness all the way down. The bordered one keeps Puppeteer's dark top and bottom edge.
