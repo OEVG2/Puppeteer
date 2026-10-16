@@ -19,7 +19,7 @@
 
 PTGuiDropdown = PTGuiComponent:Extend("dropdown")
 local _G = getfenv(0)
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 PTGuiDropdown.Options = nil
 

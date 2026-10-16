@@ -195,17 +195,23 @@ castEventFrame:SetScript("OnEvent", function()
                 local targets = PTUtil.GetSurroundingPartyMembers(target, aoeAuras[spellName])
                 for _, unit in ipairs(targets) do
                     local units = PTGuidRoster.GetAllUnits(unit)
-                    applyTimedAura(spellName, spellID, caster, units)
+                    if units then
+                        applyTimedAura(spellName, spellID, caster, units)
+                    end
                 end
+                PTPool.Release(targets)
             elseif aoeClassAuras[spellName] then
                 local class = PTUtil.GetClass(target)
                 local targets = PTUtil.GetSurroundingRaidMembers(target, 100)
                 for _, unit in ipairs(targets) do
                     if PTUtil.GetClass(unit) == class then
                         local units = PTGuidRoster.GetAllUnits(unit)
-                        applyTimedAura(spellName, spellID, caster, units)
+                        if units then
+                            applyTimedAura(spellName, spellID, caster, units)
+                        end
                     end
                 end
+                PTPool.Release(targets)
             else
                 applyTimedAura(spellName, spellID, caster, units)
             end
@@ -223,6 +229,7 @@ if not PTUtil.HasModVersion("Nampower", PTUtil.Nampower_v3_0) then
     return
 end
 
+local singleTarget = {} -- Reused instead of creating a new single-element table for every aura event
 local nampowerAuraFrame = CreateFrame("Frame", "PTNampowerAuras")
 nampowerAuraFrame:RegisterEvent("AURA_CAST_ON_SELF")
 nampowerAuraFrame:RegisterEvent("AURA_CAST_ON_OTHER")
@@ -234,7 +241,9 @@ nampowerAuraFrame:SetScript("OnEvent", function()
     if duration <= 0 then
         return
     end
-    applyTimedAura(GetSpellRecField(spellID, "name"), spellID, caster, {target}, duration / 1000)
+    singleTarget[1] = target
+    applyTimedAura(GetSpellRecField(spellID, "name"), spellID, caster, singleTarget, duration / 1000)
+    singleTarget[1] = nil
 end)
 
 local inspirationTracker = CreateFrame("Frame", "PTInspirationTracker")

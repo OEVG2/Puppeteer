@@ -9,7 +9,7 @@ PTHealPredict = {}
 PTUtil.SetEnvironment(PTHealPredict)
 local _G = getfenv(0)
 
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 RelevantGUIDs = {} -- A set of GUIDs to listen to
 
@@ -34,6 +34,11 @@ Listeners = {}
 
 local print
 local colorize = PTUtil.Colorize
+
+-- Debug messages are only built when debug output is enabled, since building them creates garbage
+local function debugEnabled()
+    return PTOptions and PTOptions["Debug"]
+end
 
 local PRAYER_OF_HEALING_IDS = PTUtil.ToSet({596, 996, 10960, 10961, 25316})
 local ResurrectionSpells = PTUtil.ToSet({
@@ -191,6 +196,9 @@ function AddIncomingCast(target, caster, spellID, healAmount, castTime, multi)
         targetTable = {}
         IncomingHeals[target] = targetTable
     end
+    if targetTable[caster] then
+        compost:Reclaim(targetTable[caster])
+    end
     targetTable[caster] = compost:AcquireHash(
         "spellID", spellID,
         "heal", healAmount,
@@ -235,6 +243,9 @@ function AddHot(target, caster, spellID, spellName, healAmount)
         targetTable = {}
         IncomingHots[target] = targetTable
     end
+    if targetTable[spellName] then
+        compost:Reclaim(targetTable[spellName])
+    end
     targetTable[spellName] = hot
 
     UpdateTarget(target)
@@ -256,20 +267,22 @@ local PLAYER_CHANGE_FACTOR = 0.25
 function UpdateCache(heal, name)
     name = name or UnitName("player")
     local lastCastedSpell = LastCastedSpells[name]
-    LastCastedSpells[name] = nil
 
     if not lastCastedSpell then
         return
     end
+    LastCastedSpells[name] = nil
 
     local spellID = lastCastedSpell["spellID"]
+    local castTarget = lastCastedSpell["target"]
+    compost:Reclaim(lastCastedSpell)
 
     if not PRAYER_OF_HEALING_IDS[spellID] then
-        if lastCastedSpell["target"] == "" then
+        if castTarget == "" then
             --print(colorize("Don't have a target of spell cast for "..name.."'s "..spellID, 1, 0, 0))
             return
         end
-        local cache = PTUnit.Get(lastCastedSpell["target"])
+        local cache = PTUnit.Get(castTarget)
         if not cache or cache == PTUnit then
             --print(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
             return
@@ -287,7 +300,9 @@ function UpdateCache(heal, name)
         local prevHeal = HealCache[spellID]
         local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * GENERIC_CHANGE_FACTOR), 2)
         HealCache[spellID] = adjustedHeal
-        print(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
+        if debugEnabled() then
+            print(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
+        end
     end
 
     if not PlayerHealCache[name] then
@@ -297,15 +312,18 @@ function UpdateCache(heal, name)
     local playerCache = PlayerHealCache[name]
     if not playerCache[spellID] then
         playerCache[spellID] = heal
-        print(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
+        if debugEnabled() then
+            print(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
+        end
     end
     local prevHeal = playerCache[spellID]
     local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * PLAYER_CHANGE_FACTOR), 2)
     playerCache[spellID] = adjustedHeal
     playerCache["lastSeen"] = time()
 
-    compost:Reclaim(lastCastedSpell)
-    print(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
+    if debugEnabled() then
+        print(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
+    end
 end
 
 function UpdateCacheHot(spellName, heal, targetGuid, targetName, casterGuid, casterName)
@@ -329,11 +347,16 @@ function UpdateCacheHot(spellName, heal, targetGuid, targetName, casterGuid, cas
 
         local cache = PTUnit.Get(targetGuid)
         if not cache or cache == PTUnit then
-            print(colorize("Could not find "..targetName.."'s unit while updating cache!", 1, 0, 0))
+            if debugEnabled() then
+                print(colorize("Could not find "..targetName.."'s unit while updating cache!", 1, 0, 0))
+            end
             return
         end
         if cache.HasHealingModifier then
-            print(colorize("Not updating cache for "..casterName.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+            if debugEnabled() then
+                print(colorize("Not updating cache for "..casterName.."'s "..spellID..
+                    " because of healing modifier", 0.5, 0.5, 0.5))
+            end
             return
         end
         -- Update the player-specific cache
@@ -341,10 +364,14 @@ function UpdateCacheHot(spellName, heal, targetGuid, targetName, casterGuid, cas
         spellID = spellID.."-HoT"
         if not playerCache[spellID] then
             playerCache[spellID] = heal
-            print(colorize("Created cache for "..casterName.."'s "..spellID.." ("..spellName..")", 1, 0.5, 1))
+            if debugEnabled() then
+                print(colorize("Created cache for "..casterName.."'s "..spellID.." ("..spellName..")", 1, 0.5, 1))
+            end
         end
         PlayerHealCache[casterName][spellID] = heal
-        print(colorize(casterName.."'s "..spellID.." ("..spellName..")"..": "..prevHeal.." -> "..heal, 0, 0.8, 0.2))
+        if debugEnabled() then
+            print(colorize(casterName.."'s "..spellID.." ("..spellName..")"..": "..prevHeal.." -> "..heal, 0, 0.8, 0.2))
+        end
     end
 end
 
@@ -422,6 +449,9 @@ eventFrame:SetScript("OnEvent", function()
                     ResurrectionTargets[target] = compost:GetTable()
                 end
                 local resses = ResurrectionTargets[target]
+                if resses[caster] then
+                    compost:Reclaim(resses[caster])
+                end
                 resses[caster] = compost:AcquireHash("startTime", GetTime(), "castTime", duration)
             end
         elseif event == "CAST" or event == "FAIL" then
@@ -485,7 +515,15 @@ eventFrame:SetScript("OnEvent", function()
     local currentCast = GetCurrentCast(caster)
     if event == "CAST" and currentCast and currentCast["spellID"] == spellID then
         RemoveIncomingCast(caster, true)
-        LastCastedSpells[UnitName(caster)] = compost:AcquireHash("unit", caster, "target", target, "spellID", spellID)
+        local casterName = UnitName(caster)
+        local last = LastCastedSpells[casterName]
+        if not last then
+            last = compost:GetTable()
+            LastCastedSpells[casterName] = last
+        end
+        last["unit"] = caster
+        last["target"] = target
+        last["spellID"] = spellID
         return
     end
 
@@ -625,7 +663,9 @@ eventFrame:SetScript("OnUpdate", function()
         for receiver, casts in pairs(IncomingHeals) do
             for caster, cast in pairs(casts) do
                 if cast["startTime"] + 15 < time then
-                    print(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
+                    if debugEnabled() then
+                        print(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
+                    end
                     compost:Reclaim(cast)
                     casts[caster] = nil
                     UpdateTarget(receiver)
@@ -636,8 +676,10 @@ eventFrame:SetScript("OnUpdate", function()
         for receiver, hots in pairs(IncomingHots) do
             for name, hot in pairs(hots) do
                 if hot["startTime"] + 25 < time then
-                    print(colorize("Removed "..hot["caster"].."'s "..name.." (HoT) on "..
-                        receiver.." for taking too long", 1, 0, 0))
+                    if debugEnabled() then
+                        print(colorize("Removed "..hot["caster"].."'s "..name.." (HoT) on "..
+                            receiver.." for taking too long", 1, 0, 0))
+                    end
                     compost:Reclaim(hot)
                     hots[name] = nil
                     UpdateTarget(receiver)
@@ -648,8 +690,10 @@ eventFrame:SetScript("OnUpdate", function()
         for target, resses in pairs(ResurrectionTargets) do
             for caster, res in pairs(resses) do
                 if res["startTime"] + 20 < time then
-                    print(colorize("Removed "..caster.."'s resurrection on "..
-                        target.." for taking too long", 1, 0, 0))
+                    if debugEnabled() then
+                        print(colorize("Removed "..caster.."'s resurrection on "..
+                            target.." for taking too long", 1, 0, 0))
+                    end
                     compost:Reclaim(res)
                     resses[caster] = nil
                     ResurrectionTargets[target] = nil
@@ -782,7 +826,24 @@ end)
 
 -- Set the GUIDs to listen to
 function SetRelevantGUIDs(guidArray)
-    RelevantGUIDs = PTUtil.ToSet(guidArray)
+    local relevant = RelevantGUIDs
+    for guid in pairs(relevant) do
+        relevant[guid] = nil
+    end
+    for _, guid in ipairs(guidArray) do
+        relevant[guid] = 1
+    end
+end
+
+-- Same as SetRelevantGUIDs, but takes a map with GUIDs as keys (like the GUID roster) to avoid building an array
+function SetRelevantGUIDsFromMap(guidMap)
+    local relevant = RelevantGUIDs
+    for guid in pairs(relevant) do
+        relevant[guid] = nil
+    end
+    for guid in pairs(guidMap) do
+        relevant[guid] = 1
+    end
 end
 
 -- Provided listener function will receive the arguments: Updated GUID, Updated Incoming Healing

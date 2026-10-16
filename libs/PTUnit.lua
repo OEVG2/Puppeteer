@@ -13,7 +13,7 @@ local AllUnitsSet = util.AllUnitsSet
 local superwow = util.IsSuperWowPresent()
 local canGetAuraIDs = util.CanClientGetAuraIDs()
 
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 -- Non-instance variable
 -- Key: Unit ID(Unmodded) or GUID(SuperWoW) | Value: PTUnit Instance
@@ -124,15 +124,20 @@ function PTUnit:New(unit)
 end
 
 function PTUnit:Dispose()
-    compost:Reclaim(self.Buffs, 1)
-    compost:Reclaim(self.BuffsMap, 1)
+    ReleaseArrayMap(self.BuffsMap)
+    ReleaseArrayMap(self.DebuffsMap)
+    ReleaseArrayMap(self.TypedDebuffs)
+    compost:Reclaim(self.Buffs)
+    compost:Reclaim(self.BuffsMap)
     compost:Reclaim(self.BuffsIDSet)
-    compost:Reclaim(self.Debuffs, 1)
-    compost:Reclaim(self.DebuffsMap, 1)
+    compost:Reclaim(self.Debuffs)
+    compost:Reclaim(self.DebuffsMap)
     compost:Reclaim(self.DebuffsIDSet)
-    compost:Reclaim(self.TypedDebuffs, 1)
+    compost:Reclaim(self.TypedDebuffs)
     compost:Reclaim(self.AfflictedDebuffTypes)
     compost:Reclaim(self.TrackedDebuffTypes)
+    compost:Reclaim(self.BuffEntries, 1)
+    compost:Reclaim(self.DebuffEntries, 1)
     util.CompostReclaim(self.AuraTimes)
     compost:Reclaim(self.AuraTimesByName)
 end
@@ -218,6 +223,60 @@ function PTUnit:GetResurrectionCasts()
     return Puppeteer.HealComm:UnitisResurrecting(UnitName(self.Unit)) and 1 or 0
 end
 
+-- Aura storage is reused across rescans so that UNIT_AURA produces no garbage:
+--  * Each unit keeps one entry table per aura slot (BuffEntries/DebuffEntries) that is overwritten in place.
+--  * The name/type -> array maps hand their arrays back to a dedicated free list when cleared.
+--  * Buffs, Debuffs and the sets are emptied in place rather than swapped for new tables.
+local freeArrays = {}
+local freeArrayCount = 0
+local MAX_FREE_ARRAYS = 1024
+local getn, setn = table.getn, table.setn
+
+local function GetArray()
+    if freeArrayCount > 0 then
+        local array = freeArrays[freeArrayCount]
+        freeArrays[freeArrayCount] = nil
+        freeArrayCount = freeArrayCount - 1
+        return array
+    end
+    return {}
+end
+
+local function ClearArray(array)
+    for i = getn(array), 1, -1 do
+        array[i] = nil
+    end
+    setn(array, 0)
+end
+
+-- Empties a map whose values are arrays, keeping the arrays for reuse
+function ReleaseArrayMap(map)
+    for key, array in pairs(map) do
+        map[key] = nil
+        ClearArray(array)
+        if freeArrayCount < MAX_FREE_ARRAYS then
+            freeArrayCount = freeArrayCount + 1
+            freeArrays[freeArrayCount] = array
+        end
+    end
+end
+local ReleaseArrayMap = ReleaseArrayMap
+
+local function ClearSet(set)
+    for key in pairs(set) do
+        set[key] = nil
+    end
+end
+
+local function GetEntry(entries, slot)
+    local entry = entries[slot]
+    if not entry then
+        entry = {}
+        entries[slot] = entry
+    end
+    return entry
+end
+
 function PTUnit:AllocateAuras()
     self.Buffs = compost:GetTable()
     self.BuffsMap = compost:GetTable()
@@ -228,26 +287,23 @@ function PTUnit:AllocateAuras()
     self.TypedDebuffs = compost:GetTable()
     self.AfflictedDebuffTypes = compost:GetTable()
     self.TrackedDebuffTypes = compost:GetTable()
+    self.BuffEntries = compost:GetTable()
+    self.DebuffEntries = compost:GetTable()
 end
 
 function PTUnit:ClearAuras()
     if not self.AurasPopulated or self == PTUnit then
         return
     end
-    compost:Reclaim(self.Buffs, 1)
-    compost:Reclaim(self.BuffsMap, 1)
-    compost:Erase(self.BuffsIDSet)
-    compost:Reclaim(self.Debuffs, 1)
-    compost:Reclaim(self.DebuffsMap, 1)
-    compost:Erase(self.DebuffsIDSet)
-    compost:Reclaim(self.TypedDebuffs, 1)
-    compost:Erase(self.AfflictedDebuffTypes)
-    compost:Erase(self.TrackedDebuffTypes)
-    self.Buffs = compost:GetTable()
-    self.BuffsMap = compost:GetTable()
-    self.Debuffs = compost:GetTable()
-    self.DebuffsMap = compost:GetTable()
-    self.TypedDebuffs = compost:GetTable()
+    ClearArray(self.Buffs)
+    ReleaseArrayMap(self.BuffsMap)
+    ClearSet(self.BuffsIDSet)
+    ClearArray(self.Debuffs)
+    ReleaseArrayMap(self.DebuffsMap)
+    ClearSet(self.DebuffsIDSet)
+    ReleaseArrayMap(self.TypedDebuffs)
+    ClearSet(self.AfflictedDebuffTypes)
+    ClearSet(self.TrackedDebuffTypes)
     self.HasHealingModifier = false
     self.AurasPopulated = false
     self.HasImportantDebuff = false
@@ -273,6 +329,7 @@ function PTUnit:UpdateAuras()
     local buffs = self.Buffs
     local buffsMap = self.BuffsMap
     local buffsIDSet = self.BuffsIDSet
+    local buffEntries = self.BuffEntries
     local time = GetTime()
     for index = 1, 32 do
         local texture, stacks, id = UnitBuff(unit, index)
@@ -298,14 +355,23 @@ function PTUnit:UpdateAuras()
                 claimedAuras[auraTime] = 1
             end
         end
-        local buff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id, "time", auraTime)
-        if not buffsMap[name] then
-            buffsMap[name] = compost:GetTable()
+        local buff = GetEntry(buffEntries, index)
+        buff.name = name
+        buff.index = index
+        buff.texture = texture
+        buff.stacks = stacks
+        buff.type = type
+        buff.id = id
+        buff.time = auraTime
+        local nameArray = buffsMap[name]
+        if not nameArray then
+            nameArray = GetArray()
+            buffsMap[name] = nameArray
         end
         if id ~= nil then
             buffsIDSet[id] = true
         end
-        table.insert(buffsMap[name], buff)
+        table.insert(nameArray, buff)
         table.insert(buffs, buff)
     end
 
@@ -315,6 +381,7 @@ function PTUnit:UpdateAuras()
     local debuffsMap = self.DebuffsMap
     local debuffsIDSet = self.DebuffsIDSet
     local typedDebuffs = self.TypedDebuffs -- Dispellable debuffs
+    local debuffEntries = self.DebuffEntries
     for index = 1, 16 do
         local texture, stacks, type, id = UnitDebuff(unit, index)
         if not texture then
@@ -343,23 +410,34 @@ function PTUnit:UpdateAuras()
                 claimedAuras[auraTime] = 1
             end
         end
-        local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id, "time", auraTime)
-        if not debuffsMap[name] then
-            debuffsMap[name] = compost:GetTable()
+        local debuff = GetEntry(debuffEntries, index)
+        debuff.name = name
+        debuff.index = index
+        debuff.texture = texture
+        debuff.stacks = stacks
+        debuff.type = type
+        debuff.id = id
+        debuff.time = auraTime
+        local nameArray = debuffsMap[name]
+        if not nameArray then
+            nameArray = GetArray()
+            debuffsMap[name] = nameArray
         end
         if id ~= nil then
             debuffsIDSet[id] = true
         end
-        table.insert(debuffsMap[name], debuff)
+        table.insert(nameArray, debuff)
         if type ~= "" then
             afflictedDebuffTypes[type] = 1
             if not PuppeteerSettings.IgnoredDispellableDebuffs[name] then
                 trackedDebuffTypes[type] = 1
             end
-            if not typedDebuffs[type] then
-                typedDebuffs[type] = compost:GetTable()
+            local typeArray = typedDebuffs[type]
+            if not typeArray then
+                typeArray = GetArray()
+                typedDebuffs[type] = typeArray
             end
-            table.insert(typedDebuffs[type], debuff)
+            table.insert(typeArray, debuff)
         end
         table.insert(debuffs, debuff)
     end

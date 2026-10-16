@@ -1,6 +1,6 @@
 PTUtil.SetEnvironment(Puppeteer)
 local _G = getfenv(0)
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 local util = PTUtil
 local colorize = util.Colorize
 local GetKeyModifier = util.GetKeyModifier

@@ -1,7 +1,7 @@
 -- Proof-of-concept spaghetti code for showing incoming spell casts
 
 PTCastIcon = PTGuiComponent:Extend("puppeteer_cast_icon")
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 local activeIcons = {}
 
 function PTCastIcon:New()

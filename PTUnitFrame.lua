@@ -5,7 +5,11 @@ local _G = getfenv(0)
 local PT = Puppeteer
 local util = PTUtil
 local colorize = util.Colorize
-local compost = AceLibrary("Compost-2.0")
+local GetColorPrefix = util.GetColorPrefix
+local format = string.format
+local floor = math.floor
+local ceil = math.ceil
+local compost = PTPool
 
 PTUnitFrame.owningGroup = nil
 
@@ -59,8 +63,10 @@ PTUnitFrame.inSight = true
 PTUnitFrame.fakeStats = {} -- Used for displaying a fake party/raid
 
 function PTUnitFrame:New(unit, isCustomUnit)
+    local _, _, num = string.find(unit, "(%d+)$")
     local obj = setmetatable({unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, auraButtonPool = {}, 
-        auraButtons = {}, auraIcons = {}, fakeStats = PTUnitFrame.GenerateFakeStats()}, self)
+        auraButtons = {}, auraIcons = {}, fakeStats = PTUnitFrame.GenerateFakeStats(),
+        unitNumber = num and tonumber(num) or false}, self)
     return obj
 end
 
@@ -218,31 +224,39 @@ function PTUnitFrame:UpdateSight()
 end
 
 local preciseDistance = util.CanClientGetPreciseDistance()
+local RANGE_PREFIX_FAR = GetColorPrefix(0.75, 0.75, 0.75)
+local RANGE_PREFIX_OUT = GetColorPrefix(1, 0.3, 0.3)
+local RANGE_PREFIX_NEAR = GetColorPrefix(1, 0.6, 0)
 function PTUnitFrame:UpdateRangeText()
-    local dist = math.ceil(self.distance)
-    local distanceText = self.distanceText
-    local text = ""
+    local dist = ceil(self.distance)
+    local prefix
     if dist >= (preciseDistance and self:GetShowDistanceThreshold() or 28) and dist < 9999 then
-        local r, g, b
         if dist > 80 then
-            r, g, b = 0.75, 0.75, 0.75
+            prefix = RANGE_PREFIX_FAR
         elseif dist >= self:GetOutOfRangeThreshold() then
-            r, g, b = 1, 0.3, 0.3
+            prefix = RANGE_PREFIX_OUT
         else
-            r, g, b = 1, 0.6, 0
-        end
-
-        if preciseDistance then
-            text = text..colorize(dist.." yd", r, g, b)
-        else
-            if dist < 28 then
-                text = text..colorize("<"..dist.." yd", r, g, b)
-            else
-                text = text..colorize("28+ yd", r, g, b)
-            end
+            prefix = RANGE_PREFIX_NEAR
         end
     end
-    distanceText:SetText(text)
+    -- Skip rebuilding the text if what's displayed wouldn't change
+    if self.lastRangeDist and prefix == self.lastRangePrefix and (not prefix or dist == self.lastRangeDist) then
+        return
+    end
+    self.lastRangePrefix = prefix
+    self.lastRangeDist = dist
+
+    local text = ""
+    if prefix then
+        if preciseDistance then
+            text = format("%s%.14g yd|r", prefix, dist)
+        elseif dist < 28 then
+            text = format("%s<%.14g yd|r", prefix, dist)
+        else
+            text = prefix.."28+ yd|r"
+        end
+    end
+    self.distanceText:SetText(text)
 end
 
 function PTUnitFrame:UpdateOpacity()
@@ -435,6 +449,16 @@ end
 -- "Class" - Uses the unit's class color
 -- "Default" - Does not color the text
 -- Array RGB - Colors the text as the RGB values
+-- Returns the color code prefix for a profile text color, or nil if the text isn't colored
+function PTUnitFrame:GetTextColorPrefix(color)
+    if color == "Class" then
+        local r, g, b = util.GetClassColor(self:GetClass())
+        return GetColorPrefix(r, g, b)
+    elseif type(color) == "table" then
+        return GetColorPrefix(color[1], color[2], color[3])
+    end
+end
+
 function PTUnitFrame:ColorizeText(inputText, color)
     if color == "Class" then
         local r, g, b = util.GetClassColor(self:GetClass())
@@ -445,6 +469,11 @@ function PTUnitFrame:ColorizeText(inputText, color)
     return inputText
 end
 
+local HOVER_PREFIX = GetColorPrefix(1, 1, 1)
+local MISSING_HEALTH_FORMATS = {Plain = "-%.14g", Colored = "%s-%.14g|r",
+    Inline = "%s (-%.14g)", InlineColored = "%s%s (-%.14g)|r"}
+local MISSING_PERCENT_FORMATS = {Plain = "-%.14g%%", Colored = "%s-%.14g%%|r",
+    Inline = "%s (-%.14g%%)", InlineColored = "%s%s (-%.14g%%)|r"}
 function PTUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
@@ -554,42 +583,72 @@ function PTUnitFrame:UpdateHealth()
         self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
     else -- Unit Not Dead
-        local text = ""
-        local missingText = ""
-        if profile.HealthDisplay == "Health/Max Health" then
-            text = currentHealth.."/"..maxHealth
-        elseif profile.HealthDisplay == "Health" then
-            text = currentHealth
-        elseif profile.HealthDisplay == "% Health" then
-            text = math.floor((currentHealth / maxHealth) * 100).."%"
-        end
-        
+        -- Each displayed string is built by a single format call, so no intermediate strings are created.
+        -- A debuff color takes priority over the white hover highlight, as it did when the colors were nested.
+        local prefix
         if profile.ShowDebuffColorsOn == "Health" then
             local r, g, b = self:GetDebuffColor()
             if r then
-                text = colorize(text, r, g, b)
+                prefix = GetColorPrefix(r, g, b)
             end
         end
-        if self.hovered then
-            text = colorize(text, 1, 1, 1)
+        if not prefix and self.hovered then
+            prefix = HOVER_PREFIX
         end
 
-        local missingHealth = math.floor(maxHealth - currentHealth)
+        local text = ""
+        local missingText = ""
+        local healthDisplay = profile.HealthDisplay
+        if healthDisplay == "Health/Max Health" then
+            if prefix then
+                text = format("%s%.14g/%.14g|r", prefix, currentHealth, maxHealth)
+            else
+                text = format("%.14g/%.14g", currentHealth, maxHealth)
+            end
+        elseif healthDisplay == "Health" then
+            if prefix then
+                text = format("%s%.14g|r", prefix, currentHealth)
+            else
+                text = currentHealth
+            end
+        elseif healthDisplay == "% Health" then
+            local percent = floor((currentHealth / maxHealth) * 100)
+            if prefix then
+                text = format("%s%.14g%%|r", prefix, percent)
+            else
+                text = format("%.14g%%", percent)
+            end
+        elseif prefix then
+            text = prefix.."|r"
+        end
 
         if self:ShouldShowMissingHealth() then
-            local missingHealthStr
-            if profile.MissingHealthDisplay == "-Health" then
-                missingHealthStr = "-"..missingHealth
-            elseif profile.MissingHealthDisplay == "-% Health" then
-                missingHealthStr = "-"..math.ceil((missingHealth / maxHealth) * 100).."%"
+            local missingHealthDisplay = profile.MissingHealthDisplay
+            local missingValue
+            local formats
+            if missingHealthDisplay == "-Health" then
+                missingValue = floor(maxHealth - currentHealth)
+                formats = MISSING_HEALTH_FORMATS
+            elseif missingHealthDisplay == "-% Health" then
+                missingValue = ceil((floor(maxHealth - currentHealth) / maxHealth) * 100)
+                formats = MISSING_PERCENT_FORMATS
             end
 
-            if profile.MissingHealthInline then
-                if text ~= "" then
-                    text = text..self:ColorizeText(" ("..missingHealthStr..")", profile.HealthTexts.Missing.Color)
+            if missingValue then
+                local missingPrefix = self:GetTextColorPrefix(profile.HealthTexts.Missing.Color)
+                if profile.MissingHealthInline then
+                    if text ~= "" then
+                        if missingPrefix then
+                            text = format(formats.InlineColored, text, missingPrefix, missingValue)
+                        else
+                            text = format(formats.Inline, text, missingValue)
+                        end
+                    end
+                elseif missingPrefix then
+                    missingText = format(formats.Colored, missingPrefix, missingValue)
+                else
+                    missingText = format(formats.Plain, missingValue)
                 end
-            else
-                missingText = self:ColorizeText(missingHealthStr, profile.HealthTexts.Missing.Color)
             end
         end
 
@@ -637,7 +696,7 @@ function PTUnitFrame:SetHealthBarValue(value)
         incomingDirectHealthBar:SetValue(healthIncDirectMaxRatio)
         if profile.IncomingHealDisplay == "Overheal" then
             if healthIncMaxRatio > 1 then
-                incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + incomingHealing - self:GetMaxHealth()))
+                incomingHealText:SetText(format("+%.14g", ceil(self:GetCurrentHealth() + incomingHealing - self:GetMaxHealth())))
                 local rgb = incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
                     profile.IncomingHealText.IndirectColor
                 if incomingDirectHealing > 0 then
@@ -649,7 +708,7 @@ function PTUnitFrame:SetHealthBarValue(value)
                 incomingHealText:SetText("")
             end
         elseif profile.IncomingHealDisplay == "Heal" then
-            incomingHealText:SetText("+"..math.ceil(incomingHealing))
+            incomingHealText:SetText(format("+%.14g", ceil(incomingHealing)))
             local rgb = incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
                     profile.IncomingHealText.IndirectColor
             if incomingDirectHealing > 0 then
@@ -756,12 +815,12 @@ function PTUnitFrame:UpdatePower()
     if profile.PowerDisplay == "Power" then
         text = currentPower
     elseif profile.PowerDisplay == "Power/Max Power" then
-        text = currentPower.."/"..maxPower
+        text = format("%.14g/%.14g", currentPower, maxPower)
     elseif profile.PowerDisplay == "% Power" then
         if maxPower == 0 then
             maxPower = 1
         end
-        text = math.floor((currentPower / maxPower) * 100).."%"
+        text = format("%.14g%%", floor((currentPower / maxPower) * 100))
     end
     self.powerText:SetText(text)
 end
@@ -789,6 +848,17 @@ if util.IsSuperWowPresent() then
         durationTextFlashColorsRange[seconds] = {colors[2], colors[1]}
     end
 end
+-- "Nm" duration strings, cached so they aren't rebuilt every time a timer ticks
+local minutesTexts = {}
+function GetMinutesText(minutes)
+    local text = minutesTexts[minutes]
+    if not text then
+        text = minutes.."m"
+        minutesTexts[minutes] = text
+    end
+    return text
+end
+
 function PTUnitFrame:AllocateAura()
     local frame = CreateFrame("Frame", nil, self.auraPanel)
     frame.unitFrame = self
@@ -817,9 +887,12 @@ function PTUnitFrame:AllocateAura()
                 self:SetText("")
                 return
             end
-            self:SetText(seconds <= 60 and seconds or math.ceil(seconds / 60).."m")
-            self:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(frame:GetHeight() * 
-                (seconds < 540 and (seconds < 10 and 0.6 or 0.45) or 0.35)), "OUTLINE")
+            self:SetText(seconds <= 60 and seconds or GetMinutesText(ceil(seconds / 60)))
+            local fontSize = ceil(frame:GetHeight() * (seconds < 540 and (seconds < 10 and 0.6 or 0.45) or 0.35))
+            if fontSize ~= self.fontSize then
+                self.fontSize = fontSize
+                self:SetFont("Fonts\\FRIZQT__.TTF", fontSize, "OUTLINE")
+            end
         end
         duration.UpdateText = function()
             local seconds = duration.seconds
@@ -1677,9 +1750,9 @@ function PTUnitFrame:IsFake()
     if not Puppeteer.TestUI or UnitExists(self.unit) then
         return false
     end
-    -- Extract trailing number from any unit ID
-    local _, _, num = string.find(self.unit, "(%d+)$")
-    if num and tonumber(num) > Puppeteer.TestUICount then
+    -- The unit's trailing number is extracted once when the frame is created
+    local num = self.unitNumber
+    if num and num > Puppeteer.TestUICount then
         return false
     end
     return true

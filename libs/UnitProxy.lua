@@ -11,7 +11,7 @@ local _G = getfenv(0)
 setmetatable(PTUnitProxy, {__index = getfenv(1)})
 setfenv(1, PTUnitProxy)
 
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 -- Unit data
 

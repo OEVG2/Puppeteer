@@ -1,5 +1,5 @@
 PTSpellLine = PTGuiComponent:Extend("puppeteer_spell_line")
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 local util = PTUtil
 local RotateTexture = util.RotateTexture
 local colorize = util.Colorize

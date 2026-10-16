@@ -1091,8 +1091,15 @@ local Hots = {
 	[L["Rejuvenation"]] = true;
 }
 
+-- Puppeteer: the result table is reused between calls (its only caller reads it immediately) so that each
+-- received addon message doesn't create a new table
+local strsplitResult = {}
 local function strsplit(pString, pPattern)
-	local Table = {}
+	local Table = strsplitResult
+	for i = table.getn(Table), 1, -1 do
+		Table[i] = nil
+	end
+	table.setn(Table, 0)
 	local fpat = "(.-)" .. pPattern
 	local last_end = 1
 	local s, e, cap = strfind(pString, fpat, 1)
@@ -1256,11 +1263,22 @@ function HealComm:UNIT_HEALTH()
 	end
 end
 
+-- Puppeteer: heal entries are recycled rather than creating a new table for every heal that starts
+local freeHealEntries = {}
+local function releaseHealEntry(entry)
+	if entry and table.getn(freeHealEntries) < 100 then
+		entry.amount = nil
+		entry.ctime = nil
+		table.insert(freeHealEntries, entry)
+	end
+end
+
 function HealComm:stopHeal(caster)
 	if self:IsEventScheduled("Healcomm_"..caster) then
 		self:CancelScheduledEvent("Healcomm_"..caster)
 	end
 	if self.Lookup[caster] then
+		releaseHealEntry(self.Heals[self.Lookup[caster]][caster])
 		self.Heals[self.Lookup[caster]][caster] = nil
 		self:TriggerEvent("HealComm_Healupdate", self.Lookup[caster])
 		self.Lookup[caster] = nil
@@ -1273,10 +1291,17 @@ function HealComm:startHeal(caster, target, size, casttime)
 		self.Heals[target] = {}
 	end
 	if self.Lookup[caster] then
+		releaseHealEntry(self.Heals[self.Lookup[caster]][caster])
 		self.Heals[self.Lookup[caster]][caster] = nil
 		self.Lookup[caster] = nil
 	end
-	self.Heals[target][caster] = {amount = math.floor(size), ctime = (casttime/1000)+GetTime()}
+	local entry = table.remove(freeHealEntries) or {}
+	entry.amount = math.floor(size)
+	entry.ctime = (casttime/1000)+GetTime()
+	if self.Heals[target][caster] then
+		releaseHealEntry(self.Heals[target][caster])
+	end
+	self.Heals[target][caster] = entry
 	self.Lookup[caster] = target
 	self:TriggerEvent("HealComm_Healupdate", target)
 end

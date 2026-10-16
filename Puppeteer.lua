@@ -12,7 +12,7 @@ Banzai = AceLibrary("Banzai-1.0")
 HealComm = AceLibrary("HealComm-1.0")
 GuidRoster = nil -- Will be nil if SuperWoW isn't present
 
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 local util = PTUtil
 local colorize = util.Colorize
 local GetKeyModifier = util.GetKeyModifier
@@ -687,7 +687,6 @@ local CheckGroupThrottler_OnUpdate = function()
         nextGroupUpdateToken = GetTime() + GROUP_UPDATE_RECOVERY
         if groupUpdateWaiting then
             groupUpdateWaiting = false
-            print("Delayed Group Update")
             CheckGroupThrottled()
         end
         if groupUpdateTokens == MAX_GROUP_UPDATE_TOKENS then
@@ -712,9 +711,9 @@ end
 function CheckGroupThrottled()
     if UseGroupUpdateToken() then
         CheckGroup()
-        print("Group Update "..groupUpdateTokens)
-    else
-        print("GROUP UPDATE THROTTLED")
+        if PTOptions and PTOptions["Debug"] then
+            print("Group Update "..groupUpdateTokens)
+        end
     end
 end
 
@@ -769,7 +768,7 @@ function CheckGroup()
         end
     end
     if superwow then
-        PTHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+        PTHealPredict.SetRelevantGUIDsFromMap(GuidRoster.GuidUnitMap)
     end
     RunTrackingScan()
     --EndTiming("CheckGroup")

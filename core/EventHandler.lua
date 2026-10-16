@@ -62,7 +62,7 @@ RegisterEventHandler({"UNIT_MANA", "UNIT_RAGE", "UNIT_ENERGY", "UNIT_FOCUS", "UN
 
     local raidFrameGroup = UnitFrameGroups["Raid"]
     if raidFrameGroup then
-        raidFrameGroup:UpdateRaidMana();
+        raidFrameGroup:RequestRaidManaUpdate()
     end
 end)
 RegisterEventHandler("UNIT_AURA", function()
@@ -100,7 +100,7 @@ RegisterEventHandler("PLAYER_TARGET_CHANGED", function()
     PTUnit.Get("target"):UpdateAll()
     if util.IsSuperWowPresent() then
         GuidRoster.SetUnitGuid("target", guid)
-        PTHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+        PTHealPredict.SetRelevantGUIDsFromMap(GuidRoster.GuidUnitMap)
     end
 
     if exists then

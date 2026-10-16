@@ -1,6 +1,6 @@
 PTLocale = {}
 PTUtil.SetEnvironment(PTLocale)
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 Translations = nil
 

@@ -53,7 +53,9 @@ end)
 
 function PTUnitFrameGroup:New(name, environment, units, petGroup, profile, sortByRole)
     local obj = setmetatable({name = name, environment = environment, uis = {}, units = units, petGroup = petGroup, 
-        profile = profile, sortByRole = sortByRole}, self)
+        profile = profile, sortByRole = sortByRole,
+        -- Scratch tables reused every time the frames are sorted and positioned
+        sortScratch = {groups = {}, sorted = {}, idSorted = {}, groupSet = {}, columns = {}}}, self)
     obj:Initialize()
     return obj
 end
@@ -162,6 +164,35 @@ function PTUnitFrameGroup:UpdateRaidMana()
 
     self:UpdateReportManaButton()
     self:SetFrameTitle()
+end
+
+-- Power events fire constantly in a raid, so raid mana recalculation is coalesced to at most every 0.5 seconds
+local RAID_MANA_UPDATE_INTERVAL = 0.5
+local raidManaUpdater = CreateFrame("Frame", "PTRaidManaUpdater")
+local pendingRaidManaGroup = nil
+local nextRaidManaUpdate = 0
+local function RaidManaUpdater_OnUpdate()
+    local time = GetTime()
+    if time < nextRaidManaUpdate then
+        return
+    end
+    raidManaUpdater:SetScript("OnUpdate", nil)
+    nextRaidManaUpdate = time + RAID_MANA_UPDATE_INTERVAL
+    local group = pendingRaidManaGroup
+    pendingRaidManaGroup = nil
+    if group then
+        group:UpdateRaidMana()
+    end
+end
+
+function PTUnitFrameGroup:RequestRaidManaUpdate()
+    if self.name ~= "Raid" or not PTOptions.ShowRaidMana then
+        return
+    end
+    pendingRaidManaGroup = self
+    if not raidManaUpdater:GetScript("OnUpdate") then
+        raidManaUpdater:SetScript("OnUpdate", RaidManaUpdater_OnUpdate)
+    end
 end
 
 function PTUnitFrameGroup:ReportRaidMana()
@@ -528,6 +559,25 @@ function PTUnitFrameGroup:ApplyProfile()
     end
 end
 
+local getn, setn = table.getn, table.setn
+local function clearArray(array)
+    for i = getn(array), 1, -1 do
+        array[i] = nil
+    end
+    setn(array, 0)
+end
+
+local function getScratchArray(arrays, index)
+    local array = arrays[index]
+    if array then
+        clearArray(array)
+    else
+        array = {}
+        arrays[index] = array
+    end
+    return array
+end
+
 function PTUnitFrameGroup:UpdateUIPositions()
     local profile = self:GetProfile()
     local profileWidth = profile.Width
@@ -537,35 +587,34 @@ function PTUnitFrameGroup:UpdateUIPositions()
     local headerEnabled = not PuppeteerSettings.IsTitleHidden(self.name)
     local headerHeight = headerEnabled and 20 or 0
 
-    local sortedUIs = self:GetSortedUIs()
-    local splitSortedUIs = {}
-    for _, group in ipairs(sortedUIs) do
-        local currentTable = {}
+    local sortedUIs, numSorted = self:GetSortedUIs()
+    -- Split the sorted groups into columns of at most maxUnitsInAxis units
+    local columns = self.sortScratch.columns
+    local numColumns = 0
+    for groupIndex = 1, numSorted do
+        local column
         local unitsUntilShift = maxUnitsInAxis
-        for _, ui in ipairs(group) do
-            if unitsUntilShift == 0 then
-                table.insert(splitSortedUIs, currentTable)
-                currentTable = {}
+        for _, ui in ipairs(sortedUIs[groupIndex]) do
+            if not column or unitsUntilShift == 0 then
+                numColumns = numColumns + 1
+                column = getScratchArray(columns, numColumns)
                 unitsUntilShift = maxUnitsInAxis
             end
-            table.insert(currentTable, ui)
+            table.insert(column, ui)
             unitsUntilShift = unitsUntilShift - 1
-        end
-        if table.getn(currentTable) > 0 then
-            table.insert(splitSortedUIs, currentTable)
         end
     end
 
     -- IMPORTANT: "Column" does not necessarily mean vertical!
     local largestColumn = orientation == "Vertical" and profile.MinUnitsY or profile.MinUnitsX
-    for _, column in ipairs(splitSortedUIs) do
-        largestColumn = math.max(largestColumn, table.getn(column))
+    for columnIndex = 1, numColumns do
+        largestColumn = math.max(largestColumn, getn(columns[columnIndex]))
     end
 
     local xSpacing = profile.HorizontalSpacing
     local ySpacing = profile.VerticalSpacing
-    for columnIndex, column in ipairs(splitSortedUIs) do
-        for i, ui in ipairs(column) do -- Column is guaranteed to be less than max units
+    for columnIndex = 1, numColumns do
+        for i, ui in ipairs(columns[columnIndex]) do -- Column is guaranteed to be less than max units
             local container = ui:GetRootContainer()
             local x = orientation == "Vertical" and ((profileWidth + xSpacing) * (columnIndex - 1)) or ((profileWidth + xSpacing) * (i - 1))
             local y = orientation == "Vertical" and ((profileHeight + ySpacing) * (i - 1)) or ((profileHeight + ySpacing) * (columnIndex - 1))
@@ -573,7 +622,7 @@ function PTUnitFrameGroup:UpdateUIPositions()
         end
     end
 
-    local largestRow = math.max(table.getn(splitSortedUIs), orientation == "Vertical" and profile.MinUnitsX or profile.MinUnitsY)
+    local largestRow = math.max(numColumns, orientation == "Vertical" and profile.MinUnitsX or profile.MinUnitsY)
 
     
     --largestRow = math.max(largestRow, 1)
@@ -610,15 +659,44 @@ function PTUnitFrameGroup:UpdateUIPositions()
     self:UpdateManaLabels()
 end
 
--- Returns an array with the index being the group number, and the value being an array of units
+-- Comparators are defined once instead of creating new closures on every sort
+local function compareByName(a, b)
+    local aName = UnitName(a:GetUnit()) or a.fakeStats.name or a:GetUnit()
+    local bName = UnitName(b:GetUnit()) or b.fakeStats.name or b:GetUnit()
+    return aName < bName
+end
+
+local function compareByClass(a, b)
+    local aName = util.GetClass(a:GetUnit()) or a.fakeStats.class
+    local bName = util.GetClass(b:GetUnit()) or b.fakeStats.class
+    return aName < bName
+end
+
+local rolePriority = {
+    ["Tank"] = 1,
+    ["Healer"] = 2,
+    ["Damage"] = 3
+}
+-- Key: Unit frame | Value: Sort rank. Ranks are computed once per frame before sorting, rather than inside the
+-- comparator (which previously also needed a copy of the group to look up each frame's original position).
+local roleRanks = {}
+local function compareByRoleRank(a, b)
+    return roleRanks[a] < roleRanks[b]
+end
+
+-- Returns an array with the index being the group number, and the value being an array of units,
+-- along with the number of groups in the array. The returned tables are reused by the next call.
 function PTUnitFrameGroup:GetSortedUIs()
     local profile = self:GetProfile()
     local uis = self.uis
-    local groups = {}
+    local scratch = self.sortScratch
+    local groups = scratch.groups
+    local numGroups
     
     if self.environment == "raid" and profile.SplitRaidIntoGroups and not self.petGroup then
+        numGroups = 8
         for i = 1, 8 do
-            groups[i] = {}
+            getScratchArray(groups, i)
         end
         local raidUnits = PTUtil.RaidUnits
         local numRaidMembers = GetNumRaidMembers()
@@ -643,8 +721,8 @@ function PTUnitFrameGroup:GetSortedUIs()
             end
         end
     else
-        groups[1] = {}
-        local group = groups[1]
+        numGroups = 1
+        local group = getScratchArray(groups, 1)
         for _, ui in pairs(uis) do
             if ui:IsShown() then
                 table.insert(group, ui)
@@ -652,86 +730,69 @@ function PTUnitFrameGroup:GetSortedUIs()
         end
     end
 
-    local sortedGroups = {}
-    if profile.SortUnitsBy == "ID" then
-        for groupNumber, group in ipairs(groups) do
-            if table.getn(group) > 0 then
-                local groupSet = {} -- Convert group UI array to a set with the key as the Unit ID
-                for _, ui in ipairs(group) do
-                    groupSet[ui:GetUnit()] = ui
-                end
-                if self.environment == "raid" then
-                    if not self.petGroup then -- Should already be sorted if we're not dealing with the pets
-                        table.insert(sortedGroups, group)
-                    else -- Pets need to be sorted manually
-                        local sortedGroup = {}
-                        for _, unit in ipairs(self.units) do -- Iterate through all unit IDs this UI group can handle, in order
-                            if groupSet[unit] then
-                                table.insert(sortedGroup, groupSet[unit])
-                            end
-                        end
-                        table.insert(sortedGroups, sortedGroup)
+    local sortedGroups = scratch.sorted
+    clearArray(sortedGroups)
+    local numSorted = 0
+    local sortUnitsBy = profile.SortUnitsBy
+    if sortUnitsBy == "ID" then
+        local groupSet = scratch.groupSet
+        for groupNumber = 1, numGroups do
+            local group = groups[groupNumber]
+            if getn(group) > 0 then
+                if self.environment == "raid" and not self.petGroup then
+                    -- Should already be sorted if we're not dealing with the pets
+                    numSorted = numSorted + 1
+                    sortedGroups[numSorted] = group
+                else -- Sort by the order of the unit IDs this UI group can handle
+                    for _, ui in ipairs(group) do -- Convert group UI array to a set with the key as the Unit ID
+                        groupSet[ui:GetUnit()] = ui
                     end
-                else
-                    local sortedGroup = {}
-                    for _, unit in ipairs(self.units) do -- Iterate through all unit IDs this UI group can handle, in order
+                    local sortedGroup = getScratchArray(scratch.idSorted, groupNumber)
+                    for _, unit in ipairs(self.units) do
                         if groupSet[unit] then
                             table.insert(sortedGroup, groupSet[unit])
                         end
                     end
-                    table.insert(sortedGroups, sortedGroup)
+                    for unit in pairs(groupSet) do
+                        groupSet[unit] = nil
+                    end
+                    numSorted = numSorted + 1
+                    sortedGroups[numSorted] = sortedGroup
                 end
             end
         end
-    elseif profile.SortUnitsBy == "Name" then
-        for groupNumber, group in ipairs(groups) do
-            if table.getn(group) > 0 then
-                table.sort(group, function(a, b)
-                    local aName = UnitName(a:GetUnit()) or a.fakeStats.name or a:GetUnit()
-                    local bName = UnitName(b:GetUnit()) or b.fakeStats.name or b:GetUnit()
-                    return aName < bName
-                end)
-                table.insert(sortedGroups, group)
-            end
-        end
-    elseif profile.SortUnitsBy == "Class Name" then
-        for groupNumber, group in ipairs(groups) do
-            if table.getn(group) > 0 then
-                table.sort(group, function(a, b)
-                    local aName = util.GetClass(a:GetUnit()) or a.fakeStats.class
-                    local bName = util.GetClass(b:GetUnit()) or b.fakeStats.class
-                    return aName < bName
-                end)
-                table.insert(sortedGroups, group)
+    elseif sortUnitsBy == "Name" or sortUnitsBy == "Class Name" then
+        local comparator = sortUnitsBy == "Name" and compareByName or compareByClass
+        for groupNumber = 1, numGroups do
+            local group = groups[groupNumber]
+            if getn(group) > 0 then
+                table.sort(group, comparator)
+                numSorted = numSorted + 1
+                sortedGroups[numSorted] = group
             end
         end
     end
+    setn(sortedGroups, numSorted)
+
     local sortByRole = self.sortByRole
-    for _, group in ipairs(sortedGroups) do
+    for groupIndex = 1, numSorted do
+        local group = sortedGroups[groupIndex]
         if sortByRole then
-            local rolePriority = {
-                ["Tank"] = 1,
-                ["Healer"] = 2,
-                ["Damage"] = 3
-            }
-            local groupCopy = util.CloneTable(group)
-            local roleSorter = function(a, b)
-                if not a or not b then
-                    return false
-                end
-                local aRank = ((rolePriority[a:GetRole()] or 4) * 1000) + util.IndexOf(groupCopy, a) + 
-                    (UnitIsUnit("player", a:GetUnit()) and 0 or 100) + (UnitIsUnit("pet", a:GetUnit()) and 0 or 99)
-                local bRank = ((rolePriority[b:GetRole()] or 4) * 1000) + util.IndexOf(groupCopy, b) + 
-                    (UnitIsUnit("player", b:GetUnit()) and 0 or 100) + (UnitIsUnit("pet", b:GetUnit()) and 0 or 99)
-                return aRank < bRank
+            for i, ui in ipairs(group) do
+                local unit = ui:GetUnit()
+                roleRanks[ui] = ((rolePriority[ui:GetRole()] or 4) * 1000) + i + 
+                    (UnitIsUnit("player", unit) and 0 or 100) + (UnitIsUnit("pet", unit) and 0 or 99)
             end
-            table.sort(group, roleSorter)
+            table.sort(group, compareByRoleRank)
+            for _, ui in ipairs(group) do
+                roleRanks[ui] = nil
+            end
         end
         for _, ui in ipairs(group) do
             ui:UpdateRole()
         end
     end
-    return sortedGroups
+    return sortedGroups, numSorted
 end
 
 function PTUnitFrameGroup:GetProfile()

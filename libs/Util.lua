@@ -415,7 +415,7 @@ function ApplyTableDiffs(t, overrides)
     end
 end
 
-local compost = AceLibrary("Compost-2.0")
+local compost = PTPool
 
 -- Recursively reclaims all tables this table contains
 function CompostReclaim(t)
@@ -493,15 +493,22 @@ function TableEquals(t1, t2)
 end
 
 function TraverseTable(v, k1, k2, k3, k4, k5)
-    local keys = compost:Acquire(k1, k2, k3, k4, k5)
-    for _, k in ipairs(keys) do
-        if type(v) ~= "table" then
-            return nil, k
-        end
-        v = v[k]
-    end
-    compost:Reclaim(keys)
-    return v
+    -- Walks the keys directly rather than packing them into a temporary table
+    if k1 == nil then return v end
+    if type(v) ~= "table" then return nil, k1 end
+    v = v[k1]
+    if k2 == nil then return v end
+    if type(v) ~= "table" then return nil, k2 end
+    v = v[k2]
+    if k3 == nil then return v end
+    if type(v) ~= "table" then return nil, k3 end
+    v = v[k3]
+    if k4 == nil then return v end
+    if type(v) ~= "table" then return nil, k4 end
+    v = v[k4]
+    if k5 == nil then return v end
+    if type(v) ~= "table" then return nil, k5 end
+    return v[k5]
 end
 
 -- Courtesy of ChatGPT
@@ -573,6 +580,27 @@ function InterpolateColorsNoTable(colors, t)
     return r, g, b
 end
 
+-- Color code prefixes ("|cFFrrggbb") are cached so colorizing doesn't format a new prefix string every call
+local colorPrefixCache = {}
+local colorPrefixCacheSize = 0
+local MAX_COLOR_PREFIX_CACHE = 1024
+local floor = math.floor
+local format = string.format
+function GetColorPrefix(r, g, b)
+    local ri, gi, bi = floor(r * 255), floor(g * 255), floor(b * 255)
+    local key = ri * 65536 + gi * 256 + bi
+    local prefix = colorPrefixCache[key]
+    if not prefix then
+        prefix = format("|cFF%02x%02x%02x", ri, gi, bi)
+        if colorPrefixCacheSize < MAX_COLOR_PREFIX_CACHE then
+            colorPrefixCache[key] = prefix
+            colorPrefixCacheSize = colorPrefixCacheSize + 1
+        end
+    end
+    return prefix
+end
+local GetColorPrefix = GetColorPrefix
+
 function Colorize(text, r, g, b)
     if type(r) == "table" then
         local rgb = r
@@ -580,7 +608,7 @@ function Colorize(text, r, g, b)
         g = rgb[2]
         b = rgb[3]
     end
-    return "|cFF" .. string.format("%02x%02x%02x", r * 255, g * 255, b * 255) .. text .. "|r"
+    return GetColorPrefix(r, g, b) .. text .. "|r"
 end
 
 function StripColors(text)
@@ -951,11 +979,14 @@ function GetRaidPartyMembers(partyNumberOrUnit)
     if type(partyNumberOrUnit) == "string" then
         partyNumberOrUnit = FindUnitRaidGroup(partyNumberOrUnit)
     end
-    local members = {}
+    local members = compost:GetTable()
     if RAID_SUBGROUP_LISTS[partyNumberOrUnit] then
+        local n = 0
         for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
-            table.insert(members, RaidUnits[raidNumber])
+            n = n + 1
+            members[n] = RaidUnits[raidNumber]
         end
+        table.setn(members, n)
     end
     return members
 end
@@ -1001,7 +1032,9 @@ function GetSurroundingPartyMembers(player, range)
         AppendArrayElements(units, PetUnits)
     end
 
-    return GetUnitsInRange(player, units, range or 30)
+    local inRange = GetUnitsInRange(player, units, range or 30)
+    compost:Reclaim(units)
+    return inRange
 end
 
 function GetSurroundingRaidMembers(player, range, checkPets)
@@ -1018,7 +1051,9 @@ function GetSurroundingRaidMembers(player, range, checkPets)
         end
     end
 
-    return GetUnitsInRange(player, units, range or 30)
+    local inRange = GetUnitsInRange(player, units, range or 30)
+    compost:Reclaim(units)
+    return inRange
 end
 
 function GetUnitsInRange(center, units, range)
@@ -1140,6 +1175,7 @@ local classColors = {
 local vanillaClassColors = {
     ["SHAMAN"] = {0.96, 0.55, 0.73}
 }
+local unknownClassColor = {0.7, 0.7, 0.7}
 function GetClassColor(class, asArray)
     local color
     if PTOptions and PTOptions.VanillaClassColors and vanillaClassColors[class] then
@@ -1148,7 +1184,7 @@ function GetClassColor(class, asArray)
         color = classColors[class]
     end
     if not color then -- Unknown class
-        color = {0.7, 0.7, 0.7}
+        color = unknownClassColor
     end
     if asArray then
         return color
