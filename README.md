@@ -1,5 +1,23 @@
 # Puppeteer
 
+> [!NOTE]
+> **About this fork (1.1.3-lowgc).** This is a low-garbage build of [OldManAlpha/Puppeteer](https://github.com/OldManAlpha/Puppeteer). It makes far less garbage for the game's Lua collector, which causes FPS drops when it runs mid-fight. Frames look and behave the same as the original. Full details and measurements are in [CHANGELOG-lowgc.md](CHANGELOG-lowgc.md).
+>
+> **Changes from the original:**
+> - **Less garbage in combat:** about 2.5× less overall in a simulated 40-man fight (21.1 → 8.6 KB/s).
+>   - Group updates went from about 17.6 KB of garbage each to 0.2 KB.
+>   - Target changes went from about 4.8 KB to almost nothing.
+>   - Heal casts, HoTs, aura updates and HealComm messages from other healers now create almost no garbage.
+> - **New textures:** Puppeteer Flat and Puppeteer Flat Borderless. They give bars a uniform color instead of a darker lower half. Pick them under Health Bar Texture or Power Bar Texture.
+> - **Upstream `dev` fixes from OldManAlpha:**
+>   - Heal predictions no longer get stuck when casts fail on base 1.12 (needs Nampower).
+>   - New "Vanilla Shaman Color" option for the pink 1.12 Shaman class color.
+> - **From [skrymsli/Puppeteer](https://github.com/skrymsli/Puppeteer):**
+>   - Raid and healer mana in the Raid frame header, plus a button to report it (raid leaders and officers only). Here it updates at most twice a second, so it costs no extra CPU in combat.
+>   - `/pt testui [count]` shows a chosen number of fake raid members (1–40).
+>
+> **Installing:** if you download this repository as a zip, rename the extracted `Puppeteer-main` folder to `Puppeteer` before placing it in `Interface\AddOns`. The game won't load it under any other name.
+
 <img align="right" width="40%" src="https://i.imgur.com/hKjSAd5.jpeg">
 Puppeteer, formerly HealersMate, is a unit frames addon for World of Warcraft Vanilla 1.12 that strives to be an alternative to modern WoW's VuhDo, Cell, or Healbot. Its features are tailored for healers, but can be a viable unit frames addon for any class and spec.
 
