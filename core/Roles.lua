@@ -9,7 +9,7 @@ AssignedRoles = nil
 
 LFTAutoRoleFrame = CreateFrame("Frame", "PT_LFTAutoRoleFrame")
 function SetLFTAutoRoleEnabled(enabled)
-    if not util.IsTurtleWow() then
+    if not util.IsClient1181() then
         return
     end
 

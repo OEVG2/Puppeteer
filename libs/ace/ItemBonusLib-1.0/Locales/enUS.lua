@@ -217,10 +217,10 @@ L:RegisterTranslations("enUS", function () return {
 		{ pattern = "Attack Power %+26 and %+1%% Critical Strike", effect = { "ATTACKPOWER", "CRIT"}, value = {26, 1} },
 		{ pattern = "Spell Damage %+15 and %+1%% Spell Critical Strike", effect = { "DMG", "HEAL", "SPELLCRIT"}, value = {15, 15, 1} },
 		
-		--Twow new Ring echants
+		--WoW 1.18.1 Clients: new ring enchants
 		{ pattern = "Healing %+12", effect = { "HEAL"}, value = {12} },
 		
-		--twow new t3 flash of light set bonus
+		--WoW 1.18.1 Clients: new T3 Flash of Light set bonus
 		{ pattern = "Increases the amount healed by your Judgement of Light by 20 and Flash of Light by 60.", effect = { "IMPFLASHOFLIGHT"}, value = {60}},
 	}
 } end)

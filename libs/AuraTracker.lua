@@ -4,12 +4,12 @@ if not PTUtil.IsSuperWowPresent() then
     return
 end
 
-local turtle = PTUtil.IsTurtleWow()
+local client1181 = PTUtil.IsClient1181()
 -- Value is duration
 local trackedCastedAuras = {
     -- Druid
     ["Rejuvenation"] = 12,
-    ["Regrowth"] = turtle and 20 or 21,
+    ["Regrowth"] = client1181 and 20 or 21,
     ["Mark of the Wild"] = 30 * 60,
     ["Gift of the Wild"] = 60 * 60,
     ["Thorns"] = 10 * 60,
@@ -55,18 +55,18 @@ local trackedCastedAuras = {
     ["Blessing of Sacrifice"] = 30,
     ["Hand of Sacrifice"] = 30,
     ["Divine Intervention"] = 3 * 60,
-    ["Blessing of Wisdom"] = (turtle and 10 or 5) * 60,
-    ["Blessing of Might"] = (turtle and 10 or 5) * 60,
-    ["Blessing of Salvation"] = (turtle and 10 or 5) * 60,
-    ["Blessing of Sanctuary"] = (turtle and 10 or 5) * 60,
-    ["Blessing of Kings"] = (turtle and 10 or 5) * 60,
-    ["Blessing of Light"] = (turtle and 10 or 5) * 60,
-    ["Greater Blessing of Wisdom"] = (turtle and 30 or 15) * 60,
-    ["Greater Blessing of Might"] = (turtle and 30 or 15) * 60,
-    ["Greater Blessing of Salvation"] = (turtle and 30 or 15) * 60,
-    ["Greater Blessing of Sanctuary"] = (turtle and 30 or 15) * 60,
-    ["Greater Blessing of Kings"] = (turtle and 30 or 15) * 60,
-    ["Greater Blessing of Light"] = (turtle and 30 or 15) * 60,
+    ["Blessing of Wisdom"] = (client1181 and 10 or 5) * 60,
+    ["Blessing of Might"] = (client1181 and 10 or 5) * 60,
+    ["Blessing of Salvation"] = (client1181 and 10 or 5) * 60,
+    ["Blessing of Sanctuary"] = (client1181 and 10 or 5) * 60,
+    ["Blessing of Kings"] = (client1181 and 10 or 5) * 60,
+    ["Blessing of Light"] = (client1181 and 10 or 5) * 60,
+    ["Greater Blessing of Wisdom"] = (client1181 and 30 or 15) * 60,
+    ["Greater Blessing of Might"] = (client1181 and 30 or 15) * 60,
+    ["Greater Blessing of Salvation"] = (client1181 and 30 or 15) * 60,
+    ["Greater Blessing of Sanctuary"] = (client1181 and 30 or 15) * 60,
+    ["Greater Blessing of Kings"] = (client1181 and 30 or 15) * 60,
+    ["Greater Blessing of Light"] = (client1181 and 30 or 15) * 60,
     -- Shaman
     ["Water Walking"] = 10 * 60,
     -- Mage

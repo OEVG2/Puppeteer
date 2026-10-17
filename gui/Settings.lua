@@ -527,7 +527,7 @@ function CreateTab_Options_Other(panel)
                 end
             end)
 
-    factory:checkbox("(TWoW) LFT Auto Role", {"Automatically assign roles when joining LFT groups", 
+    factory:checkbox("(1.18.1) LFT Auto Role", {"Automatically assign roles when joining LFT groups", 
             "This functionality was tested for 1.18.0 and may break in future updates"}, "LFTAutoRole",
             function() Puppeteer.SetLFTAutoRoleEnabled(PTOptions.LFTAutoRole) end)
     factory:checkbox("Show Raid Mana", {"Show average raid and healer mana in the raid frame header",
@@ -553,7 +553,7 @@ function CreateTab_Options_Advanced(panel)
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", experimentsLabel, "BOTTOM", 0, -5)
     layout:offset(0, -70)
-    factory:checkbox("(TWoW)\nAuto Role", {"If enabled, the Role Action menu shows auto role detection options", "Enabled Account-Wide"}, 
+    factory:checkbox("(1.18.1)\nAuto Role", {"If enabled, the Role Action menu shows auto role detection options", "Enabled Account-Wide"}, 
         "Global.Experiments.AutoRole",
         Puppeteer.InitRoleDropdown)
     factory:checkbox("(SuperWoW & UnitXP)\nEnemy Frames", 
@@ -1159,10 +1159,10 @@ function CreateTab_About()
 
     local text = PTGuiLib.GetText(container, 
             "Puppeteer Version "..Puppeteer.VERSION..
-            "\n\n\nPuppeteer Author: OldManAlpha\nTurtle Nordanaar IGN: Oldmana, Lowall, Jmdruid"..
+            "\n\n\nPuppeteer Author: OldManAlpha\nNordanaar IGN: Oldmana, Lowall, Jmdruid"..
             "\n\nHealersMate Original Author: i2ichardt\nEmail: rj299@yahoo.com"..
             "\n\nAdditional Contributors"..
-            "\nTurtle WoW Community: Answers to addon development questions"..
+            "\nWoW 1.18.1 Clients community: Answers to addon development questions"..
             "\nShagu: Utility functions & providing a wealth of research material"..
             "\nChatGPT: Utility functions"..
             "\n\n\nCheck For Updates, Report Issues, Make Suggestions:\n",

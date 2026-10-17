@@ -226,7 +226,8 @@ function HasModVersion(mod, version)
     return EnabledMods[mod] and EnabledMods[mod] >= version
 end
 
-TurtleWow = TURTLE_WOW_VERSION ~= nil
+-- TURTLE_WOW_VERSION is the global the WoW 1.18.1 client defines, so it keeps its name
+Client1181 = TURTLE_WOW_VERSION ~= nil
 
 PowerColors = {
     ["mana"] = {0.1, 0.25, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
@@ -891,7 +892,7 @@ function ScanAuraInfo(unit, index, type)
     return leftText:GetText() or "", rightText:GetText() or ""
 end
 
-if SuperWoW or TurtleWow then
+if SuperWoW or Client1181 then
     local auraNameCache = {}
     local auraTypeCache = {}
 
@@ -904,7 +905,7 @@ if SuperWoW or TurtleWow then
                 local _, _, _, i = UnitDebuff(unit, index)
                 id = i
             end
-            if not id then -- Uh oh, Turtle lost the ID
+            if not id then -- Uh oh, the 1.18.1 client lost the ID
                 return ScanAuraInfo(unit, index, type)
             end
         end
@@ -1202,7 +1203,7 @@ function SearchSpells(startStr, limit, noNonRank)
     for i = 1, GetNumSpellTabs() do
         local breakOut
         local tabName, _, _, numSpells = GetSpellTabInfo(i)
-        if tabName == "ZMounts" or tabName == "ZzCompanions" then -- No Turtle "spell" tabs
+        if tabName == "ZMounts" or tabName == "ZzCompanions" then -- No 1.18.1 client "spell" tabs
             id = id + numSpells
         else
             for j = 1, numSpells do
@@ -1628,11 +1629,11 @@ end
 
 
 function CanClientGetAuraIDs()
-    return SuperWoW-- or TurtleWow -- Turtle ID fetching is not reliable
+    return SuperWoW-- or Client1181 -- 1.18.1 client ID fetching is not reliable
 end
 
-function IsTurtleWow()
-    return TurtleWow
+function IsClient1181()
+    return Client1181
 end
 
 AllUnitsSet = ToSet(AllUnits)

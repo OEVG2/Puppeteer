@@ -66,7 +66,7 @@ When hovering over a player, a tooltip is displayed showing you your current pow
 
 ### Client Mods That Enhance Puppeteer
 
-While not required, the mods listed below will massively improve your experience with Puppeteer, and likely the game in general. Note that some vanilla servers may not allow these mods and you should check with your server to see if they do. Turtle WoW does not seem to have a problem with any of these. See [this page](https://github.com/RetroCro/TurtleWoW-Mods) for information about how to install mods.
+While not required, the mods listed below will massively improve your experience with Puppeteer, and likely the game in general. Note that some vanilla servers may not allow these mods and you should check with your server to see if they do. WoW 1.18.1 Clients do not seem to have a problem with any of these. Each mod's page below explains how to install it.
 
 | Mod | Enhancement |
 | - | - |
@@ -101,6 +101,6 @@ Tentative, this could change at any time.
 ### Credits
 
 - [i2ichardt](https://github.com/i2ichardt) - Original HealersMate Author
-- Turtle WoW Community - Answers to addon development questions
+- WoW 1.18.1 Clients community - Answers to addon development questions
 - [Shagu](https://github.com/shagu) - Utility functions, providing a wealth of research material, and general inspiration
 - @blondieart (Discord) - Created the art at the top of this page

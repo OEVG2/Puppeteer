@@ -150,7 +150,7 @@ function SetDefaults()
             ["PVPFlagProtection"] = true,
             ["SetMouseover"] = true,
             ["ShowRaidMana"] = true,
-            ["LFTAutoRole"] = true, -- Turtle WoW
+            ["LFTAutoRole"] = true, -- WoW 1.18.1 Clients
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["HideWhileSolo"] = false,
@@ -370,7 +370,7 @@ end
 DefaultTrackedHealingBuffs = {"Amplify Magic", "Dampen Magic", "Master Demonologist", "Apotheosis"}
 DefaultTrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Mortal Wound", 
     "Gehennas' Curse", "Necrotic Poison", "Blood Fury", "Necrotic Aura", "Brood Affliction: Green",
-    "Shadowbane Curse", "Leeching Bite", "Foulfire Bolt", "Spores of Corruption" -- Turtle WoW
+    "Shadowbane Curse", "Leeching Bite", "Foulfire Bolt", "Spores of Corruption" -- WoW 1.18.1 Clients
 }
 -- Tracked buffs for all classes
 DefaultTrackedBuffs = {

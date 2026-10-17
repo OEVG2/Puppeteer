@@ -450,12 +450,12 @@ function PTUnit:HasBuff(name)
     return self.BuffsMap[name] ~= nil
 end
 
--- SuperWoW/Turtle WoW only
+-- SuperWoW/WoW 1.18.1 Clients only
 function PTUnit:HasBuffID(id)
     return self.BuffsIDSet[id] ~= nil
 end
 
--- Looks for ID if SuperWoW/Turtle WoW is present, otherwise searches by name
+-- Looks for ID if SuperWoW/WoW 1.18.1 Clients is present, otherwise searches by name
 function PTUnit:HasBuffIDOrName(id, name)
     if canGetAuraIDs then
         return self:HasBuffID(id)
@@ -467,12 +467,12 @@ function PTUnit:HasDebuff(name)
     return self.DebuffsMap[name] ~= nil
 end
 
--- SuperWoW/Turtle WoW only
+-- SuperWoW/WoW 1.18.1 Clients only
 function PTUnit:HasDebuffID(id)
     return self.DebuffsIDSet[id] ~= nil
 end
 
--- Looks for ID if SuperWoW/Turtle WoW is present, otherwise searches by name
+-- Looks for ID if SuperWoW/WoW 1.18.1 Clients is present, otherwise searches by name
 function PTUnit:HasDebuffIDOrName(id, name)
     if canGetAuraIDs then
         return self:HasDebuffID(id)
