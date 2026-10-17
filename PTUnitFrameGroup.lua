@@ -5,6 +5,9 @@ local _G = getfenv(0)
 local PT = Puppeteer
 local util = PTUtil
 
+-- Height of the title bar above each frame group ("Party", "Raid", ...). The original was 20.
+HEADER_HEIGHT = 16
+
 PTUnitFrameGroup.name = "???"
 PTUnitFrameGroup.raidmana = "??"
 PTUnitFrameGroup.healermana = "??"
@@ -399,8 +402,8 @@ function PTUnitFrameGroup:Initialize()
 
     local reportBtn = CreateFrame("Button", "$parentReportMana", header)
     self.reportManaButton = reportBtn
-    reportBtn:SetWidth(16)
-    reportBtn:SetHeight(16)
+    reportBtn:SetWidth(HEADER_HEIGHT - 2)
+    reportBtn:SetHeight(HEADER_HEIGHT - 2)
     reportBtn:SetPoint("RIGHT", header, "RIGHT", -2, 0)
     reportBtn:SetNormalTexture("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
     reportBtn:SetHighlightTexture("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
@@ -585,7 +588,7 @@ function PTUnitFrameGroup:UpdateUIPositions()
     local maxUnitsInAxis = profile.MaxUnitsInAxis
     local orientation = profile.Orientation
     local headerEnabled = not PuppeteerSettings.IsTitleHidden(self.name)
-    local headerHeight = headerEnabled and 20 or 0
+    local headerHeight = headerEnabled and HEADER_HEIGHT or 0
 
     local sortedUIs, numSorted = self:GetSortedUIs()
     -- Split the sorted groups into columns of at most maxUnitsInAxis units

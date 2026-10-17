@@ -85,3 +85,8 @@ Two new bar textures, **Puppeteer Flat** and **Puppeteer Flat Borderless**, are 
 and Power Bar Texture dropdowns. The original Puppeteer textures are brighter in the top half than the bottom
 (about 188 vs 137–120 brightness), which makes bar colors look darker halfway down. The flat textures use the
 top-half brightness all the way down. The bordered one keeps Puppeteer's dark top and bottom edge.
+
+## Shorter frame titles
+
+The title bar above each frame group ("Party", "Raid", ...) is 16 px tall instead of 20 px. The height is the
+`HEADER_HEIGHT` constant at the top of `PTUnitFrameGroup.lua`.
