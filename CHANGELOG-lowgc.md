@@ -97,3 +97,11 @@ When health bars or names use the Class color, pets now take their owner's class
 green and a warlock's pet is warlock purple. It is on by default and can be turned off with "Pets Use Owner's Class
 Color" in the options. The owner of each pet slot (pet, partypet1-4, raidpet1-40) is looked up in a table built at
 load, so this adds no garbage.
+
+## Move frames with hidden titles
+
+A frame group whose title is hidden had nothing left to grab, so it couldn't be moved. Now, while a group's title is
+hidden, holding Shift+Ctrl+Alt and dragging any of its unit frames with the left mouse button moves the group. It uses
+the normal drag code, so frame locking, "move all frames" and saved positions behave as with the title. That click
+never casts, even if the keys are released before the mouse button. Groups with a visible title or a locked position
+keep the old behavior, including any Shift+Ctrl+Alt left-click binding.

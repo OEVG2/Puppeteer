@@ -1473,16 +1473,39 @@ function PTUnitFrame:Initialize()
     self:RegisterClicks()
     button:SetScript("OnClick", function()
         local buttonType = arg1
+        -- Clicks that move the frame group never cast
+        if self.suppressClick then
+            self.suppressClick = nil
+            return
+        end
+        if self:IsFrameDragClick(buttonType) then
+            return
+        end
         PT.UnitFrame_OnClick(buttonType, unit, self)
     end)
     button:SetScript("OnMouseDown", function()
         local buttonType = arg1
+        self.suppressClick = nil
+        if self:IsFrameDragClick(buttonType) then
+            -- Hand the drag to the group container, which handles locking, moving all frames and saving positions
+            self.frameDragging = true
+            if PTOptions.CastWhen == "Mouse Up" then
+                self.suppressClick = true -- The click comes after the release, even if the keys were let go first
+            end
+            util.CallWithThis(self.owningGroup:GetContainer(), self.owningGroup:GetContainer():GetScript("OnMouseDown"))
+            return
+        end
         PT.CurrentlyHeldButton = buttonType
         PT.ReapplySpellsTooltip()
         self.pressed = true
         self:AdjustHealthPosition()
     end)
     button:SetScript("OnMouseUp", function()
+        if self.frameDragging then
+            self.frameDragging = nil
+            util.CallWithThis(self.owningGroup:GetContainer(), self.owningGroup:GetContainer():GetScript("OnMouseUp"))
+            return
+        end
         PT.CurrentlyHeldButton = nil
         PT.ReapplySpellsTooltip()
         self.pressed = false
@@ -1816,6 +1839,16 @@ function PTUnitFrame:UpdateRole()
     else
         self.roleIcon.frame:Hide()
     end
+end
+
+-- With the group's title hidden there is nothing to grab, so Shift+Ctrl+Alt + left-drag on a unit frame moves the
+-- group instead (unless the group is locked)
+function PTUnitFrame:IsFrameDragClick(buttonType)
+    if buttonType ~= "LeftButton" or not (IsShiftKeyDown() and IsControlKeyDown() and IsAltKeyDown()) then
+        return false
+    end
+    local groupName = self.owningGroup.name
+    return PuppeteerSettings.IsTitleHidden(groupName) and not PuppeteerSettings.IsFrameLocked(groupName)
 end
 
 function PTUnitFrame:GetProfile()

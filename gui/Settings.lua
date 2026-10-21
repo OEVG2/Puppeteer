@@ -933,7 +933,7 @@ function CreateTab_Customize()
     LockFrameCheckbox = lockFrameCheckbox
 
     local hideTitleCheckbox = CreateLabeledCheckbox(frameStyleContainer, "Hide Title", {"If checked, the title of this frame will be hidden", 
-        colorize("Note: When you want to move the frame, you need to enable the title!", 1, 0.4, 0.4)})
+        colorize("To move the frame while its title is hidden, hold Shift+Ctrl+Alt and drag it with the left mouse button", 1, 0.82, 0)})
         :OnClick(function(self)
             local frameName = frameDropdown:GetText()
             PuppeteerSettings.SetTitleHidden(frameName, self:GetChecked() == 1)
