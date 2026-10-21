@@ -452,7 +452,7 @@ end
 -- Returns the color code prefix for a profile text color, or nil if the text isn't colored
 function PTUnitFrame:GetTextColorPrefix(color)
     if color == "Class" then
-        local r, g, b = util.GetClassColor(self:GetClass())
+        local r, g, b = util.GetClassColor(self:GetColorClass())
         return GetColorPrefix(r, g, b)
     elseif type(color) == "table" then
         return GetColorPrefix(color[1], color[2], color[3])
@@ -461,7 +461,7 @@ end
 
 function PTUnitFrame:ColorizeText(inputText, color)
     if color == "Class" then
-        local r, g, b = util.GetClassColor(self:GetClass())
+        local r, g, b = util.GetClassColor(self:GetColorClass())
         return colorize(inputText, r, g, b)
     elseif type(color) == "table" then
         return colorize(inputText, color)
@@ -740,7 +740,7 @@ function PTUnitFrame:SetHealthBarValue(value)
     if r == nil then -- If there's no debuff color, proceed to normal colors
         local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
         if hbc == "Class" then
-            local class = util.GetClass(unit)
+            local class = self:GetColorClass()
             if class == nil then
                 class = self.fakeStats.class
             end
@@ -1736,6 +1736,32 @@ function PTUnitFrame:GetClass()
         return self.fakeStats.class
     end
     return util.GetClass(self.unit)
+end
+
+-- Key: Pet unit | Value: The unit that owns it. Built once so looking up an owner creates no strings.
+local petOwners = {["pet"] = "player"}
+for i = 1, 4 do
+    petOwners["partypet"..i] = "party"..i
+end
+for i = 1, 40 do
+    petOwners["raidpet"..i] = "raid"..i
+end
+
+-- The class used for "Class" colors. With the PetOwnerClassColors option, pets take their owner's class
+-- (a hunter's pet is colored like a hunter), falling back to the pet's own class if the owner is unknown.
+function PTUnitFrame:GetColorClass()
+    if self:IsFake() then
+        return self.fakeStats.class
+    end
+    local unit = self.unit
+    local owner = petOwners[unit]
+    if owner and PTOptions.PetOwnerClassColors then
+        local ownerClass = util.GetClass(owner)
+        if ownerClass then
+            return ownerClass
+        end
+    end
+    return util.GetClass(unit)
 end
 
 function PTUnitFrame:IsPlayer()

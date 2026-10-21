@@ -90,3 +90,10 @@ top-half brightness all the way down. The bordered one keeps Puppeteer's dark to
 
 The title bar above each frame group ("Party", "Raid", ...) is 16 px tall instead of 20 px. The height is the
 `HEADER_HEIGHT` constant at the top of `PTUnitFrameGroup.lua`.
+
+## Pets use their owner's class color
+
+When health bars or names use the Class color, pets now take their owner's class color, so a hunter's pet is hunter
+green and a warlock's pet is warlock purple. It is on by default and can be turned off with "Pets Use Owner's Class
+Color" in the options. The owner of each pet slot (pet, partypet1-4, raidpet1-40) is looked up in a table built at
+load, so this adds no garbage.

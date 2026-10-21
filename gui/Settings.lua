@@ -519,6 +519,14 @@ function CreateTab_Options_Other(panel)
     factory:checkbox("Out of Range Arrow", {"See an arrow when hovering over an out of range player"},
         "OutOfRangeArrow", function() Puppeteer.SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow) end)
 
+    factory:checkbox("Pets Use Owner's Class Color", {"Pets are colored with their owner's class color",
+            "Applies wherever the Class color is chosen (health bars and names)"}, "PetOwnerClassColors",
+            function()
+                for _, ui in ipairs(Puppeteer.AllUnitFrames) do
+                    ui:UpdateHealth()
+                end
+            end)
+
     factory:checkbox("Vanilla Shaman Color", {"Use paladin pink for shamans, as they originally were in vanilla",
             "This is not recommended to use on cross-faction servers"}, "VanillaClassColors",
             function()

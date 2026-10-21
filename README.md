@@ -9,6 +9,7 @@
 >   - Target changes went from about 4.8 KB to almost nothing.
 >   - Heal casts, HoTs, aura updates and HealComm messages from other healers now create almost no garbage.
 > - **New textures:** Puppeteer Flat and Puppeteer Flat Borderless. They give bars a uniform color instead of a darker lower half. Pick them under Health Bar Texture or Power Bar Texture.
+> - **Pets use their owner's class color:** with Class colors, a hunter's pet is colored like a hunter. Toggle it with "Pets Use Owner's Class Color" in the options.
 > - **Shorter frame titles:** the "Party"/"Raid" title bars are 16 px tall instead of 20 px.
 > - **Upstream `dev` fixes from OldManAlpha:**
 >   - Heal predictions no longer get stuck when casts fail on base 1.12 (needs Nampower).
