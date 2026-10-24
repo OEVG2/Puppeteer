@@ -1177,9 +1177,24 @@ local vanillaClassColors = {
     ["SHAMAN"] = {0.96, 0.55, 0.73}
 }
 local unknownClassColor = {0.7, 0.7, 0.7}
-function GetClassColor(class, asArray)
+-- Exact palette from the supplied ModernClassColors reference. Keep this local
+-- so choosing a health bar texture does not change names or other addons.
+local modernClassColors = {
+    ["DRUID"] = {1, 0.49, 0.04},
+    ["HUNTER"] = {0.67, 0.83, 0.45},
+    ["MAGE"] = {0.25, 0.78, 0.92},
+    ["PALADIN"] = {0.96, 0.55, 0.73},
+    ["PRIEST"] = {1, 1, 1},
+    ["ROGUE"] = {1, 0.96, 0.41},
+    ["SHAMAN"] = {0, 0.44, 0.87},
+    ["WARLOCK"] = {0.53, 0.53, 0.93},
+    ["WARRIOR"] = {0.78, 0.61, 0.43}
+}
+function GetClassColor(class, asArray, modern)
     local color
-    if PTOptions and PTOptions.VanillaClassColors and vanillaClassColors[class] then
+    if modern then
+        color = modernClassColors[class]
+    elseif PTOptions and PTOptions.VanillaClassColors and vanillaClassColors[class] then
         color = vanillaClassColors[class]
     else
         color = classColors[class]

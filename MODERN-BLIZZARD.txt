@@ -1,0 +1,33 @@
+Modern Blizzard customization
+
+Based on OEVG2/Puppeteer commit 502e151f755c99f6f74005f9fd3489ea7519e6a3.
+
+Installation:
+1. Exit WoW completely so the client can discover the new texture.
+2. Back up your existing Interface\AddOns\Puppeteer folder.
+3. Extract the Puppeteer folder in this ZIP into Interface\AddOns,
+   replacing the existing addon files. Keep your WTF saved settings.
+4. Start WoW, type /pt, and open Customize.
+5. Select the style to customize (or the default override).
+6. Set Health Bar Texture to Modern Blizzard.
+7. Set Health Bar Color to Class to use the supplied nine-class palette.
+   Enemy health bars use their separate enemy color setting.
+8. Use the Reload UI button if the changes are not yet visible.
+
+The shared texture menu also makes this texture available for power bars;
+power bars retain their normal power colors. Names retain their existing colors.
+Debuff colors, charm indicators and incoming-heal effects retain their priority.
+Choosing another texture restores the existing health class palette, including
+the Vanilla Class Colors preference. Modern Blizzard uses the exact supplied
+palette even when that preference is enabled.
+
+Assets:
+BlizzardRetailBar.tga copied unchanged from the user's supplied reference ZIP.
+Reference source: BetterBlizzFrames by Bodify, media/blizzTex/BlizzardRetailBar.tga
+https://github.com/Bodify/BetterBlizzFrames
+The supplied reference identifies this asset as All Rights Reserved,
+Copyright (c) 2023-2026 Bodify; no new redistribution rights are granted.
+Class palette copied from the supplied ModernClassColors.lua reference.
+
+Validation: Lua syntax and isolated health-color behavior checked locally.
+An in-game visual check is still required.

@@ -744,7 +744,7 @@ function PTUnitFrame:SetHealthBarValue(value)
             if class == nil then
                 class = self.fakeStats.class
             end
-            r, g, b = util.GetClassColor(class)
+            r, g, b = util.GetClassColor(class, false, profile.HealthBarStyle == "Modern Blizzard")
         elseif hbc == "Green" then
             r, g, b = 0, 0.8, 0
         elseif hbc == "Green To Red" then

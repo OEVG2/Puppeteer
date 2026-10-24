@@ -1014,7 +1014,7 @@ function CreateTab_Customize()
     table.sort(barStyles)
 
     add(createDropdown("Health Bar Color", nil, "HealthBarColor", {"Green To Red", "Green", "Class"}), -10)
-    add(createDropdown("Health Bar Texture", nil, "HealthBarStyle", barStyles))
+    add(createDropdown("Health Bar Texture", "Modern Blizzard uses the reference class palette when Health Bar Color is Class", "HealthBarStyle", barStyles))
     add(createDropdown("Health Display", "What kind of text is displayed as health", "HealthDisplay", {"Health", "Health/Max Health", "% Health", "Hidden"}))
     add(createDropdown("Missing Health Display", "What kind of text is displayed as missing health", "MissingHealthDisplay", {"-Health", "-% Health", "Hidden"}))
     add(createDropdown("Incoming Heal Display", nil, "IncomingHealDisplay", {"Overheal", "Heal", "Hidden"}))

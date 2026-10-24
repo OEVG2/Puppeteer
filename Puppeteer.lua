@@ -33,6 +33,7 @@ AllCustomUnitsSet = util.CustomUnitsSet
 
 local ptBarsPath = util.GetAssetsPath().."textures\\bars\\"
 BarStyles = {
+    ["Modern Blizzard"] = ptBarsPath.."BlizzardRetailBar",
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
     ["Blizzard Smooth"] = ptBarsPath.."Blizzard-Smooth",
     ["Blizzard Raid"] = ptBarsPath.."Blizzard-Raid",
